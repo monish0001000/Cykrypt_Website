@@ -1,0 +1,244 @@
+================================================================================
+                        CYBERSHIELD — PROJECT ABSTRACT
+================================================================================
+
+PROJECT TITLE
+-------------
+CyberShield — Official Website for the CyberShield Student Association
+& CYKRYPT National-Level Cybersecurity Event
+
+
+OVERVIEW
+--------
+CyberShield is a modern, futuristic, single-page web application built for the
+CyberShield Student Association of the Department of B.E. CSE (Cybersecurity)
+at Arunai Engineering College, Tiruvannamalai. The website serves as the digital
+identity and operational hub for the association and its flagship annual event —
+CYKRYPT — a national-level cybersecurity competition.
+
+The website is designed with a premium, dark-themed cyber-aesthetic featuring
+neon cyan accents, glassmorphism panels, scan-line animations, and smooth
+Framer Motion transitions, creating an immersive experience that reflects the
+cybersecurity domain.
+
+
+PURPOSE & OBJECTIVES
+--------------------
+1. Showcase the association's identity, mission, and team members.
+2. Present past and upcoming CYKRYPT events with rich visual event cards.
+3. Provide an advanced multi-step team registration system for CYKRYPT 2026.
+4. Deliver registration data securely to event organizers via Telegram Bot API.
+5. Create a professional, visually striking online presence for the association.
+
+
+TECHNOLOGY STACK
+----------------
+  Framework       : Next.js 16 (React 19, App Router)
+  Language        : TypeScript
+  Styling         : Tailwind CSS v4 + Custom CSS (globals.css)
+  Animations      : Framer Motion v12
+  Icons           : Lucide React
+  3D Capabilities : Three.js, @react-three/fiber, @react-three/drei
+  Backend API     : Next.js API Routes (App Router)
+  Deployment      : Node.js (npm run dev / npm run build)
+  Form Delivery   : Telegram Bot API (server-side, via environment variables)
+
+
+ARCHITECTURE
+------------
+The project follows the Next.js App Router convention:
+
+  d:\project\CyberShield\
+  |
+  |-- src/
+  |   |-- app/
+  |   |   |-- page.tsx            Main entry page (single-page app controller)
+  |   |   |-- layout.tsx          Root HTML layout with metadata
+  |   |   |-- globals.css         Global styles, design tokens, custom components
+  |   |   |-- api/
+  |   |       |-- register/
+  |   |           |-- route.ts    POST API endpoint for team registration
+  |   |
+  |   |-- components/
+  |       |-- Header.tsx           Fixed navigation bar with dropdown menus
+  |       |-- CykryptHero.tsx      Full-screen hero section with background art
+  |       |-- EventsModal.tsx      Full-page slide-in events showcase (2025 & 2026)
+  |       |-- EventsSection.tsx    Homepage events section with past & ongoing events
+  |       |-- RegistrationModal.tsx Full-page multi-step team registration form
+  |       |-- RegistrationForm.tsx  Standalone registration form (alternate/legacy)
+  |       |-- AboutModal.tsx       Full-page about section with team & organizer info
+  |       |-- Tilt.tsx             Reusable 3D tilt-on-hover effect component
+  |
+  |-- public/
+      |-- bg_pc.svg               Desktop hero background artwork
+      |-- bg_mob.svg              Mobile hero background artwork
+      |-- event_ctf.jpg           CTF event image
+      |-- event_forensics.jpg     Cyber Forensics event image
+      |-- event_paper.jpg         Paper Presentation event image
+      |-- event_quiz.jpg          Technical Quiz event image
+
+
+The application uses a single-page architecture with a modal-based navigation
+system. Clicking any navigation item (Events, Registration, About) opens the
+corresponding full-page view as a slide-in overlay powered by Framer Motion's
+AnimatePresence transitions.
+
+
+COMPONENTS — DETAILED DESCRIPTION
+-----------------------------------
+
+1. HEADER (Header.tsx)
+   - Fixed, transparent navigation bar with backdrop blur
+   - Displays the "CYKRYPT" logo with neon cyan glow
+   - Desktop: Horizontal nav with Events dropdown (2025/2026), Registration, About
+   - Mobile: Hamburger menu with animated expand/collapse
+   - Events dropdown has glass-panel styling with subtle shadow
+
+2. HERO SECTION (CykryptHero.tsx)
+   - Full-screen section with responsive SVG background art
+     (different backgrounds for mobile and desktop via CSS media queries)
+   - Features a gradient-glass "Explore" button in the bottom-left corner
+   - Button has hover glow sweep animation and rotates the compass icon
+   - Clicking "Explore" opens the Events 2026 page
+
+3. EVENTS PAGE (EventsModal.tsx)
+   - Full-page slide-in overlay from the right edge (spring animation)
+   - Year-based tab navigation: "2025 — COMPLETED" and "2026 — UPCOMING"
+   - Active tab has animated cyan underline (layoutId animation)
+   - Each event is displayed as a horizontal card with:
+     * Left: Event image with gradient overlay, tag badge (FLAGSHIP/ADVANCED/OPEN/COMPLETED), floating animated icons
+     * Right: Event icon, title, description, metadata (date, season, college)
+   - 2025 Season Events (Completed):
+     * CTF (Capture The Flag)
+     * Cyber Forensics
+     * Technical Quiz
+     * Paper Presentation
+   - 2026 Season Events (Upcoming):
+     * CTF 2.0 (Hybrid) — Flagship
+     * Cyber Forensics — Advanced
+     * Paper Presentation — Open
+     * Technical Quiz — Open
+   - Cards have hover effects: image zoom, title color change, border glow
+
+4. EVENTS SECTION — HOMEPAGE (EventsSection.tsx)
+   - Embedded in the main page (not a modal)
+   - "Past Events" grid with 3D tilt-on-hover cards (using Tilt.tsx)
+   - "LIVE NOW" ongoing event banner for CYKRYPT-2026:
+     * Glowing pulsing gradient border
+     * Event tags: CTF Competition, Paper Presentation, Cyber Forensics
+     * "REGISTER NOW" call-to-action button with cyan glow
+
+5. REGISTRATION PAGE (RegistrationModal.tsx)
+   - Full-page slide-in overlay, multi-step team registration form
+   - Header banner with animated rotating Shield icon and "CYKRYPT 2026" branding
+   - 3-Step Registration Process:
+     * Step 1 — Team Configuration: Team name, event category selection
+       (CTF 2.0, Cyber Forensics, Paper Presentation, Technical Quiz),
+       participation mode (Online/Offline for CTF), college/institution
+     * Step 2 — Team Leader: Full name, phone, year/department, email
+     * Step 3 — Team Members: Add 1-3 members with name, phone, email
+       (dynamic add/remove with animations)
+   - Enhanced UX Features:
+     * Numbered step indicators with checkmarks for completed steps
+     * Animated connecting lines between step indicators
+     * Gradient progress bar (cyan to blue) at the top of the form
+     * Green-themed submit button on the final step
+     * Spinning loader animation during submission
+   - After Successful Submission:
+     * Full-screen animated success overlay with radiating rings
+     * Large animated checkmark with rotating dashed border
+     * "Registration Successful!" heading with sparkle decorations
+     * Glass panel explaining next steps: wait for organizer contact
+       via phone call or official communication channels
+     * "Expect a call / or an email" footer
+     * Manual "CLOSE & RETURN" button
+   - On Error: Styled error banner with retry prompt
+   - Backend: Sends POST to /api/register
+
+6. REGISTRATION API (api/register/route.ts)
+   - Server-side Next.js API route
+   - Receives JSON payload: teamName, event, college, ctfMode, leader, members
+   - Formats a structured Telegram message with emojis and sections
+   - Sends the message via Telegram Bot API using environment variables:
+     * TELEGRAM_BOT_TOKEN
+     * TELEGRAM_CHAT_ID
+   - Returns success/error JSON response
+   - This ensures the Telegram bot token is never exposed to the client
+
+7. ABOUT PAGE (AboutModal.tsx)
+   - Full-page slide-in overlay
+   - Hero card with holographic HUD corners, scan-line animation, and
+     rotating Shield icon describing the CyberShield association
+   - Association Members section: Faculty Advisor, Association Coordinator
+     (displayed as cards with avatar icons, role, and designation)
+   - Event Organizers section: Grid of 8 organizer cards (President,
+     Vice President, Secretary, Treasurer, Technical Lead, Event Coordinator,
+     Design Lead, Social Media Lead) with monogram avatars
+   - Footer with department and college information
+
+8. TILT COMPONENT (Tilt.tsx)
+   - Reusable 3D perspective tilt effect wrapper
+   - Tracks mouse position relative to the element
+   - Applies smooth spring-based rotateX and rotateY transforms
+   - Used on the EventsSection cards for an interactive hover experience
+
+
+DESIGN SYSTEM & AESTHETICS
+---------------------------
+The website follows a cohesive futuristic cyber-HUD design language:
+
+  Color Palette:
+    - Deep Navy (#050A18)     — Primary background
+    - Neon Cyan (#00F0FF)     — Primary accent, highlights, interactive elements
+    - Electric Gold (#F59E0B) — Secondary accent
+    - White/Gray variants     — Text hierarchy
+
+  Custom CSS Components (globals.css):
+    - .glass-panel       — Glassmorphism panels with blur and subtle cyan borders
+    - .hud-input         — Underline-style HUD inputs with cyan focus glow
+    - .hud-select        — Matching select dropdowns
+    - .gradient-glass-btn — Gradient text buttons with glass backgrounds
+    - .ghost-btn         — Outlined cyan ghost buttons with hover glow
+    - .scan-line         — Animated horizontal scan line (classic HUD effect)
+    - .custom-scrollbar  — Thin cyan-tinted scrollbar
+    - ::selection        — Cyan text selection highlight
+
+  Animation Patterns:
+    - Slide-in pages: spring-based horizontal transitions (x: 100% → 0)
+    - Staggered card reveals: sequential opacity + y-offset animations
+    - Tab indicators: Framer Motion layoutId for shared layout animation
+    - Rotating icons: Continuous rotation with repeat delays
+    - Hover effects: Scale, color shift, border glow, image zoom
+    - Radiating rings: Expanding + fading circles for success state
+
+
+RESPONSIVE DESIGN
+-----------------
+The website is fully responsive across all breakpoints:
+  - Mobile: Single-column layouts, hamburger navigation, mobile hero background
+  - Tablet: 2-column grids for organizer cards, expanded event cards
+  - Desktop: Full multi-column layouts, horizontal event cards, dropdown nav
+
+
+KEY FEATURES SUMMARY
+--------------------
+  [✓] Immersive full-screen hero with responsive SVG backgrounds
+  [✓] Year-tabbed events showcase (2025 past / 2026 upcoming)
+  [✓] Multi-step team registration with validation and progress tracking
+  [✓] Secure server-side Telegram Bot integration for registration delivery
+  [✓] Advanced animated success overlay with next-steps guidance
+  [✓] Full-page slide-in navigation with spring animations
+  [✓] Glassmorphism design system with HUD-style form elements
+  [✓] 3D tilt hover effects on interactive cards
+  [✓] Association members and event organizers directory
+  [✓] Mobile-responsive with hamburger navigation
+  [✓] Custom scrollbar, selection styles, and scan-line effects
+
+
+DEVELOPED BY
+------------
+CyberShield Student Association
+Department of B.E. CSE (Cybersecurity)
+Arunai Engineering College, Tiruvannamalai
+
+================================================================================

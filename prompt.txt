@@ -1,0 +1,4 @@
+telegram:
+
+const TELEGRAM_BOT_TOKEN = '8294839950:AAFwqdTpOZQREyME9ZYonPW-Kwaas3ajTqc';
+const TELEGRAM_CHAT_ID = '5932177382';

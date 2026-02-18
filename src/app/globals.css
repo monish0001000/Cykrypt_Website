@@ -1,26 +1,301 @@
 @import "tailwindcss";
 
+/* ═══════════════════════════════════════════════════════════════
+   CYBERSHIELD V2.0 — Design System
+   ═══════════════════════════════════════════════════════════════ */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --deep-navy: #050a18;
+  --neon-cyan: #00f0ff;
+  --electric-gold: #f59e0b;
+  --glass-bg: rgba(15, 23, 42, 0.6);
+  --glass-border: rgba(0, 240, 255, 0.12);
+  --background: #050a18;
+  --foreground: #e0e8f0;
+  --accent: #00f0ff;
+  --accent-glow: rgba(0, 240, 255, 0.4);
+}
+
+/* Gold Elite Theme override */
+[data-theme="gold"] {
+  --neon-cyan: #f59e0b;
+  --accent: #f59e0b;
+  --accent-glow: rgba(245, 158, 11, 0.4);
+  --glass-border: rgba(245, 158, 11, 0.12);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-deep-navy: #050a18;
+  --color-neon-cyan: var(--accent);
+  --color-electric-gold: #f59e0b;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── Base ─── */
+* {
+  transition-property: color, background-color, border-color, box-shadow;
+  transition-duration: 0s;
 }
 
 body {
-  background: var(--background);
+  background: var(--deep-navy);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* ─── Glassmorphism ─── */
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+}
+
+/* ─── Underline Input (HUD Style) ─── */
+.hud-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0;
+  padding: 0.75rem 0;
+  color: white;
+  font-size: 0.875rem;
+  width: 100%;
+  transition: border-color 0.3s, box-shadow 0.3s;
+  outline: none;
+  letter-spacing: 0.02em;
+}
+
+.hud-input::placeholder {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.hud-input:focus {
+  border-bottom-color: var(--accent);
+  box-shadow: 0 2px 8px -2px var(--accent-glow);
+}
+
+/* ─── Select override ─── */
+.hud-select {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0;
+  padding: 0.75rem 0;
+  color: white;
+  font-size: 0.875rem;
+  width: 100%;
+  transition: border-color 0.3s;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.hud-select:focus {
+  border-bottom-color: var(--accent);
+}
+
+.hud-select option {
+  background: #0f172a;
+  color: white;
+}
+
+/* ─── Gradient Glass Button ─── */
+.gradient-glass-btn {
+  position: relative;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid transparent;
+  border-image: linear-gradient(135deg, var(--accent), #1e3a8a) 1;
+  color: transparent;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-image: linear-gradient(135deg, var(--accent), #3b82f6);
+  padding: 0.75rem 1.75rem;
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.gradient-glass-btn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
+  z-index: -1;
+  border-radius: inherit;
+}
+
+.gradient-glass-btn:hover {
+  box-shadow: 0 0 25px var(--accent-glow), 0 0 8px rgba(0, 240, 255, 0.1) inset;
+}
+
+/* ─── Ghost Button ─── */
+.ghost-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  color: var(--accent);
+  text-shadow: 0 0 6px var(--accent-glow);
+  transition: all 0.3s ease;
+}
+
+.ghost-btn:hover {
+  background: rgba(0, 240, 255, 0.08);
+  border-color: var(--accent);
+  box-shadow: 0 0 15px var(--accent-glow);
+}
+
+/* ─── Scan Line Animation ─── */
+@keyframes scanline {
+  0% {
+    top: 0%;
+  }
+
+  50% {
+    top: 100%;
+  }
+
+  100% {
+    top: 0%;
+  }
+}
+
+.scan-line {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-glow), transparent);
+  animation: scanline 4s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ─── Custom Scrollbar ─── */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.15);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.3);
+}
+
+/* ─── Selection ─── */
+::selection {
+  background: var(--accent-glow);
+  color: white;
+}
+
+/* ═══ V2.0 Additions ═══ */
+
+/* ─── Blinking cursor for terminal ─── */
+@keyframes blink-cursor {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0;
+  }
+}
+
+.terminal-cursor {
+  display: inline-block;
+  width: 8px;
+  height: 1.1em;
+  background: var(--accent);
+  animation: blink-cursor 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+/* ─── Segmented digit style ─── */
+.digit-segment {
+  font-family: "Courier New", "Consolas", monospace;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 12px var(--accent-glow), 0 0 4px var(--accent-glow);
+}
+
+/* ─── Image lightbox backdrop ─── */
+.lightbox-backdrop {
+  background: rgba(5, 10, 24, 0.95);
+  backdrop-filter: blur(20px);
+}
+
+/* ─── Floating glow animation ─── */
+@keyframes float-glow {
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+/* ─── Scan sweep for threat animation ─── */
+@keyframes scan-sweep {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.scan-sweep-line {
+  animation: scan-sweep 1.5s ease-in-out infinite;
+}
+
+/* ─── Flicker effect ─── */
+@keyframes flicker {
+
+  0%,
+  97%,
+  100% {
+    opacity: 1;
+  }
+
+  98% {
+    opacity: 0.7;
+  }
+
+  99% {
+    opacity: 0.9;
+  }
+}
+
+.flicker-effect {
+  animation: flicker 3s ease-in-out infinite;
+}
+
+/* ─── Parallax section ─── */
+.parallax-bg {
+  will-change: transform;
 }

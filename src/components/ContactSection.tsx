@@ -7,8 +7,8 @@ const contactInfo = [
     {
         icon: <Mail className="w-5 h-5" />,
         label: "Email",
-        value: "cybershield@aec.edu.in",
-        href: "mailto:cybershield@aec.edu.in",
+        value: "cybershield2026@gmail.com",
+        href: "mailto:cybershield2026@gmail.com",
     },
     {
         icon: <Phone className="w-5 h-5" />,

@@ -12,7 +12,7 @@ interface TimeLeft {
 }
 
 // Set event date: March 15, 2026 at 9:00 AM IST
-const EVENT_DATE = new Date("2026-03-15T09:00:00+05:30").getTime();
+const EVENT_DATE = new Date("2026-03-18T09:00:00+05:30").getTime();
 
 function calcTimeLeft(): TimeLeft {
     const diff = Math.max(0, EVENT_DATE - Date.now());

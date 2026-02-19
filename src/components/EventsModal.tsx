@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import { ArrowLeft, Calendar, Trophy, Lock, FileText, Monitor, Zap, Cpu, Globe, Wifi } from "lucide-react";
+import { ArrowLeft, Calendar, Trophy, Lock, FileText, Monitor, Zap, Cpu, Globe } from "lucide-react";
 
 interface EventsPageProps {
     isOpen: boolean;
@@ -31,15 +31,7 @@ const eventsData = {
             tag: "COMPLETED",
             decorIcons: [<Cpu key="c" className="w-4 h-4" />, <Globe key="g" className="w-4 h-4" />],
         },
-        {
-            title: "Technical Quiz",
-            icon: <FileText className="w-6 h-6" />,
-            desc: "A test of knowledge covering network security, encryption protocols, and operating system internals. Rapid-fire rounds put participants' reflexes to the test with questions on OWASP Top 10, TCP/IP stack, and PKI infrastructure.",
-            gradient: "from-purple-600 via-violet-500 to-indigo-600",
-            image: "/event_quiz.jpg",
-            tag: "COMPLETED",
-            decorIcons: [<Wifi key="w" className="w-4 h-4" />, <Zap key="z" className="w-4 h-4" />],
-        },
+
         {
             title: "Paper Presentation",
             icon: <FileText className="w-6 h-6" />,
@@ -79,15 +71,7 @@ const eventsData = {
             tag: "OPEN",
             decorIcons: [<Globe key="g" className="w-4 h-4" />, <Cpu key="c" className="w-4 h-4" />],
         },
-        {
-            title: "Technical Quiz",
-            icon: <FileText className="w-6 h-6" />,
-            desc: "Rapid-fire rounds to test your reflexes and depth of cybersecurity concepts. Covering network protocols, malware analysis, cryptographic primitives, and incident response procedures.",
-            gradient: "from-purple-600 via-violet-500 to-indigo-600",
-            image: "/event_quiz.jpg",
-            tag: "OPEN",
-            decorIcons: [<Wifi key="w" className="w-4 h-4" />, <Zap key="z" className="w-4 h-4" />],
-        },
+
     ],
 };
 

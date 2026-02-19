@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ArrowLeft, ChevronRight, ChevronLeft, CheckCircle, AlertCircle,
-    Plus, Trash2, UserCircle, Users, Shield, Sparkles, Phone, Mail, Clock
+    Plus, Trash2, UserCircle, Users, Shield, Sparkles, Phone, Mail, Clock, Loader2, AlertTriangle
 } from "lucide-react";
 import ThreatScan from "./ThreatScan";
+import {
+    sanitize,
+    validateStep1, validateStep2, validateStep3,
+    validateName, validatePhone, validateEmail,
+    isTimingSuspicious, MAX_SESSION_SUBMISSIONS,
+    type StepErrors, type StepWarnings,
+} from "@/lib/validation";
 
 interface RegistrationPageProps {
     isOpen: boolean;
@@ -15,15 +22,60 @@ interface RegistrationPageProps {
 
 type Member = { name: string; phone: string; email: string };
 
+// ─── Inline Error Component ───
+function FieldError({ error }: { error?: string }) {
+    if (!error) return null;
+    return (
+        <motion.p
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="field-error-text"
+        >
+            <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+            {error}
+        </motion.p>
+    );
+}
+
+function FieldWarning({ warning }: { warning?: string }) {
+    if (!warning) return null;
+    return (
+        <motion.p
+            initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+            className="field-warning-text"
+        >
+            <AlertTriangle className="w-3 h-3 flex-shrink-0 mt-0.5" />
+            {warning}
+        </motion.p>
+    );
+}
+
+/** Returns the CSS class for an input field based on its validation state */
+function inputState(field: string, errors: StepErrors, touched: Set<string>): string {
+    if (!touched.has(field)) return "hud-input";
+    if (errors[field]) return "hud-input hud-input-error";
+    return "hud-input hud-input-valid";
+}
+
 export default function RegistrationPage({ isOpen, onClose }: RegistrationPageProps) {
     const [step, setStep] = useState(1);
     const [status, setStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
     const [showScan, setShowScan] = useState(false);
     const [scanComplete, setScanComplete] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
+
+    // Validation state
+    const [errors, setErrors] = useState<StepErrors>({});
+    const [warnings, setWarnings] = useState<StepWarnings>({});
+    const [touched, setTouched] = useState<Set<string>>(new Set());
+
+    // Anti-bot
+    const formOpenedAt = useRef(Date.now());
+    const honeypotRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen && !scanComplete) {
             setShowScan(true);
+            formOpenedAt.current = Date.now();
         }
         if (!isOpen) {
             setScanComplete(false);
@@ -42,36 +94,210 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
     const [ctfMode, setCtfMode] = useState("Online");
 
     const [leader, setLeader] = useState({ name: "", phone: "", email: "", yearDept: "" });
-    const [members, setMembers] = useState<Member[]>([{ name: "", phone: "", email: "" }]);
+    // Start with 2 members (minimum required)
+    const [members, setMembers] = useState<Member[]>([
+        { name: "", phone: "", email: "" },
+        { name: "", phone: "", email: "" },
+    ]);
 
-    const addMember = () => { if (members.length < 3) setMembers([...members, { name: "", phone: "", email: "" }]); };
-    const removeMember = (i: number) => { if (members.length > 1) setMembers(members.filter((_, idx) => idx !== i)); };
+    const addMember = () => {
+        if (members.length < 3) setMembers([...members, { name: "", phone: "", email: "" }]);
+    };
+    const removeMember = (i: number) => {
+        // Enforce minimum of 2 members
+        if (members.length > 2) setMembers(members.filter((_, idx) => idx !== i));
+    };
     const updateMember = (i: number, field: keyof Member, val: string) => {
         const m = [...members]; m[i][field] = val; setMembers(m);
     };
 
-    const handleNext = () => { if (step < 3) setStep(step + 1); };
-    const handleBack = () => { if (step > 1) setStep(step - 1); };
+    // Mark a field as touched on blur
+    const touch = (field: string) => {
+        setTouched(prev => new Set(prev).add(field));
+    };
+
+    // Auto-trim on blur
+    const trimAndSet = (setter: (v: string) => void, field: string) => (e: React.FocusEvent<HTMLInputElement>) => {
+        setter(sanitize(e.target.value));
+        touch(field);
+    };
+
+    // ─── Step Validation ───
+    const validateCurrentStep = (): boolean => {
+        let result;
+        if (step === 1) {
+            result = validateStep1(teamName, college);
+            // Mark all step 1 fields as touched
+            setTouched(prev => {
+                const n = new Set(prev);
+                n.add("teamName"); n.add("college");
+                return n;
+            });
+        } else if (step === 2) {
+            result = validateStep2(leader);
+            setTouched(prev => {
+                const n = new Set(prev);
+                n.add("leaderName"); n.add("leaderPhone"); n.add("leaderEmail"); n.add("leaderYearDept");
+                return n;
+            });
+        } else {
+            result = validateStep3(members);
+            setTouched(prev => {
+                const n = new Set(prev);
+                members.forEach((_, i) => {
+                    n.add(`member${i}_name`); n.add(`member${i}_phone`); n.add(`member${i}_email`);
+                });
+                return n;
+            });
+        }
+        setErrors(result.errors);
+        setWarnings(result.warnings);
+        return result.valid;
+    };
+
+    // Live validation on field changes (only for touched fields)
+    useEffect(() => {
+        if (step === 1 && touched.size > 0) {
+            const result = validateStep1(teamName, college);
+            setErrors(prev => {
+                const next: StepErrors = {};
+                for (const key of Object.keys(result.errors)) {
+                    if (touched.has(key)) next[key] = result.errors[key];
+                }
+                return next;
+            });
+        }
+    }, [teamName, college, step, touched]);
+
+    useEffect(() => {
+        if (step === 2 && touched.size > 0) {
+            const result = validateStep2(leader);
+            setErrors(prev => {
+                const next: StepErrors = {};
+                for (const key of Object.keys(result.errors)) {
+                    if (touched.has(key)) next[key] = result.errors[key];
+                }
+                return next;
+            });
+            setWarnings(result.warnings);
+        }
+    }, [leader, step, touched]);
+
+    useEffect(() => {
+        if (step === 3 && touched.size > 0) {
+            const result = validateStep3(members);
+            setErrors(prev => {
+                const next: StepErrors = {};
+                for (const key of Object.keys(result.errors)) {
+                    if (touched.has(key)) next[key] = result.errors[key];
+                }
+                return next;
+            });
+            setWarnings(result.warnings);
+        }
+    }, [members, step, touched]);
+
+    const handleNext = () => {
+        if (validateCurrentStep() && step < 3) {
+            setStep(step + 1);
+            setErrors({});
+            setWarnings({});
+            setTouched(new Set());
+        }
+    };
+    const handleBack = () => {
+        if (step > 1) {
+            setStep(step - 1);
+            setErrors({});
+            setWarnings({});
+            setTouched(new Set());
+        }
+    };
 
     const resetForm = () => {
-        setStep(1); setStatus("idle");
+        setStep(1); setStatus("idle"); setErrorMessage("");
         setTeamName(""); setEvent("CTF 2.0 (Hybrid)"); setCollege(""); setCtfMode("Online");
         setLeader({ name: "", phone: "", email: "", yearDept: "" });
-        setMembers([{ name: "", phone: "", email: "" }]);
+        setMembers([{ name: "", phone: "", email: "" }, { name: "", phone: "", email: "" }]);
+        setErrors({}); setWarnings({}); setTouched(new Set());
+        formOpenedAt.current = Date.now();
     };
 
     const handleSubmit = async () => {
+        // Final step validation
+        if (!validateCurrentStep()) return;
+
+        // Anti-bot: honeypot
+        if (honeypotRef.current && honeypotRef.current.value) {
+            // Bot detected — silently show success to not reveal detection
+            setStatus("success");
+            return;
+        }
+
+        // Anti-bot: timing
+        if (isTimingSuspicious(formOpenedAt.current)) {
+            setStatus("error");
+            setErrorMessage("Submission too fast. Please take your time filling the form.");
+            return;
+        }
+
+        // Session rate limit
+        const sessionKey = "cybershield_reg_count";
+        const count = parseInt(sessionStorage.getItem(sessionKey) || "0", 10);
+        if (count >= MAX_SESSION_SUBMISSIONS) {
+            setStatus("error");
+            setErrorMessage("Maximum registration attempts reached. Please try again later.");
+            return;
+        }
+
         setStatus("submitting");
+        setErrorMessage("");
+
         try {
+            // Sanitize all inputs before sending
+            const sanitizedLeader = {
+                name: sanitize(leader.name),
+                phone: sanitize(leader.phone),
+                email: sanitize(leader.email),
+                yearDept: sanitize(leader.yearDept),
+            };
+            const sanitizedMembers = members.map(m => ({
+                name: sanitize(m.name),
+                phone: sanitize(m.phone),
+                email: sanitize(m.email),
+            }));
+
             const res = await fetch("/api/register", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ teamName, event, college, ctfMode: event.includes("CTF") ? ctfMode : "N/A", leader, members }),
+                body: JSON.stringify({
+                    teamName: sanitize(teamName),
+                    event,
+                    college: sanitize(college),
+                    ctfMode: event.includes("CTF") ? ctfMode : "N/A",
+                    leader: sanitizedLeader,
+                    members: sanitizedMembers,
+                    _hp: honeypotRef.current?.value || "",
+                    _ts: formOpenedAt.current,
+                }),
             });
+
             if (res.ok) {
                 setStatus("success");
-            } else { setStatus("error"); }
-        } catch { setStatus("error"); }
+                sessionStorage.setItem(sessionKey, String(count + 1));
+            } else {
+                const data = await res.json().catch(() => ({}));
+                setStatus("error");
+                setErrorMessage(data.error || "Submission failed. Please check your connection and try again.");
+                // If there are field-level errors from server
+                if (data.fieldErrors) {
+                    setErrors(data.fieldErrors);
+                }
+            }
+        } catch {
+            setStatus("error");
+            setErrorMessage("Network error. Please check your connection and try again.");
+        }
     };
 
     const steps = [
@@ -214,7 +440,7 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                     onClick={() => { onClose(); resetForm(); }}
                                                     className="px-8 py-3 bg-neon-cyan/10 text-neon-cyan font-bold rounded-xl border border-neon-cyan/20 hover:bg-neon-cyan/20 hover:border-neon-cyan/40 transition-all text-xs tracking-wider shadow-[0_0_12px_rgba(0,240,255,0.1)]"
                                                 >
-                                                    CLOSE & RETURN
+                                                    CLOSE &amp; RETURN
                                                 </motion.button>
                                             </motion.div>
                                         </motion.div>
@@ -229,7 +455,6 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                 >
                                     <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-neon-cyan/40 to-transparent" />
                                     <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-neon-cyan/20 to-transparent" />
-                                    {/* Corner HUD accents */}
                                     <div className="absolute top-2 left-2 w-4 h-4 border-t border-l border-neon-cyan/20" />
                                     <div className="absolute top-2 right-2 w-4 h-4 border-t border-r border-neon-cyan/20" />
                                     <div className="absolute bottom-2 left-2 w-4 h-4 border-b border-l border-neon-cyan/20" />
@@ -248,6 +473,13 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                     <p className="text-gray-500 text-xs tracking-wider max-w-sm mx-auto">
                                         Register your team for the premier national-level cybersecurity competition. Complete all three steps to finalize your entry.
                                     </p>
+                                    {/* Security badge */}
+                                    <div className="mt-4 flex items-center justify-center gap-2">
+                                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-500/5 border border-green-500/15">
+                                            <Shield className="w-3 h-3 text-green-400" />
+                                            <span className="text-[9px] font-bold tracking-[0.15em] text-green-400/70 uppercase">Secured & Validated</span>
+                                        </div>
+                                    </div>
                                 </motion.div>
 
                                 {/* ═══ Step Indicators ═══ */}
@@ -293,6 +525,17 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                         <motion.div className="h-full bg-gradient-to-r from-neon-cyan to-blue-500 shadow-[0_0_8px_rgba(0,240,255,0.5)]" animate={{ width: `${(step / 3) * 100}%` }} transition={{ duration: 0.4 }} />
                                     </div>
 
+                                    {/* Honeypot — hidden from humans, bots fill it */}
+                                    <div style={{ position: "absolute", left: "-9999px", opacity: 0, height: 0, overflow: "hidden" }} aria-hidden="true">
+                                        <input
+                                            type="text"
+                                            name="website_url"
+                                            tabIndex={-1}
+                                            autoComplete="off"
+                                            ref={honeypotRef}
+                                        />
+                                    </div>
+
                                     <form onSubmit={(e) => e.preventDefault()}>
                                         <AnimatePresence mode="wait">
                                             {/* ─── STEP 1: Team Configuration ─── */}
@@ -308,7 +551,9 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                     <div>
                                                         <label className="block text-gray-500 text-[10px] uppercase tracking-[0.15em] mb-2">Team Name</label>
                                                         <input type="text" required value={teamName} onChange={e => setTeamName(e.target.value)}
-                                                            className="hud-input" placeholder="Enter your team name" />
+                                                            onBlur={trimAndSet(setTeamName, "teamName")}
+                                                            className={inputState("teamName", errors, touched)} placeholder="Enter your team name" />
+                                                        <FieldError error={errors.teamName} />
                                                     </div>
                                                     <div>
                                                         <label className="block text-gray-500 text-[10px] uppercase tracking-[0.15em] mb-2">Event Category</label>
@@ -316,7 +561,6 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                             <option>CTF 2.0 (Hybrid)</option>
                                                             <option>Cyber Forensics</option>
                                                             <option>Paper Presentation</option>
-                                                            <option>Technical Quiz</option>
                                                         </select>
                                                     </div>
                                                     {event.includes("CTF") && (
@@ -338,7 +582,9 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                     <div>
                                                         <label className="block text-gray-500 text-[10px] uppercase tracking-[0.15em] mb-2">College / Institution</label>
                                                         <input type="text" required value={college} onChange={e => setCollege(e.target.value)}
-                                                            className="hud-input" placeholder="Enter your college name" />
+                                                            onBlur={trimAndSet(setCollege, "college")}
+                                                            className={inputState("college", errors, touched)} placeholder="Enter your college name" />
+                                                        <FieldError error={errors.college} />
                                                     </div>
                                                 </motion.div>
                                             )}
@@ -356,25 +602,38 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                     <div className="space-y-6">
                                                         <div>
                                                             <label className="block text-gray-500 text-[10px] uppercase tracking-[0.15em] mb-2">Full Name</label>
-                                                            <input type="text" required value={leader.name} onChange={e => setLeader({ ...leader, name: e.target.value })}
-                                                                className="hud-input" placeholder="Team leader's full name" />
+                                                            <input type="text" required value={leader.name}
+                                                                onChange={e => setLeader({ ...leader, name: e.target.value })}
+                                                                onBlur={(e) => { setLeader({ ...leader, name: sanitize(e.target.value) }); touch("leaderName"); }}
+                                                                className={inputState("leaderName", errors, touched)} placeholder="Team leader's full name" />
+                                                            <FieldError error={errors.leaderName} />
                                                         </div>
                                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                                             <div>
                                                                 <label className="block text-gray-500 text-[10px] uppercase tracking-[0.15em] mb-2">Phone Number</label>
-                                                                <input type="tel" required value={leader.phone} onChange={e => setLeader({ ...leader, phone: e.target.value })}
-                                                                    className="hud-input" placeholder="+91 ..." />
+                                                                <input type="tel" required value={leader.phone}
+                                                                    onChange={e => setLeader({ ...leader, phone: e.target.value })}
+                                                                    onBlur={(e) => { setLeader({ ...leader, phone: e.target.value.trim() }); touch("leaderPhone"); }}
+                                                                    className={inputState("leaderPhone", errors, touched)} placeholder="10-digit phone number" />
+                                                                <FieldError error={errors.leaderPhone} />
                                                             </div>
                                                             <div>
                                                                 <label className="block text-gray-500 text-[10px] uppercase tracking-[0.15em] mb-2">Year / Department</label>
-                                                                <input type="text" required value={leader.yearDept} onChange={e => setLeader({ ...leader, yearDept: e.target.value })}
-                                                                    className="hud-input" placeholder="III / CSE-CS" />
+                                                                <input type="text" required value={leader.yearDept}
+                                                                    onChange={e => setLeader({ ...leader, yearDept: e.target.value })}
+                                                                    onBlur={(e) => { setLeader({ ...leader, yearDept: sanitize(e.target.value) }); touch("leaderYearDept"); }}
+                                                                    className={inputState("leaderYearDept", errors, touched)} placeholder="III / CSE-CS" />
+                                                                <FieldError error={errors.leaderYearDept} />
                                                             </div>
                                                         </div>
                                                         <div>
                                                             <label className="block text-gray-500 text-[10px] uppercase tracking-[0.15em] mb-2">Email Address</label>
-                                                            <input type="email" required value={leader.email} onChange={e => setLeader({ ...leader, email: e.target.value })}
-                                                                className="hud-input" placeholder="leader@email.com" />
+                                                            <input type="email" required value={leader.email}
+                                                                onChange={e => setLeader({ ...leader, email: e.target.value })}
+                                                                onBlur={(e) => { setLeader({ ...leader, email: e.target.value.trim().toLowerCase() }); touch("leaderEmail"); }}
+                                                                className={inputState("leaderEmail", errors, touched)} placeholder="leader@college.edu.in" />
+                                                            <FieldError error={errors.leaderEmail} />
+                                                            <FieldWarning warning={warnings.leaderEmail} />
                                                         </div>
                                                     </div>
                                                 </motion.div>
@@ -387,8 +646,21 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                         <h2 className="text-xl font-bold text-white tracking-wider font-mono">
                                                             TEAM <span className="text-neon-cyan">MEMBERS</span>
                                                         </h2>
-                                                        <p className="text-gray-500 text-xs tracking-wider mt-1">Add 1–3 additional members to your team</p>
+                                                        <p className="text-gray-500 text-xs tracking-wider mt-1">
+                                                            Add 2–3 members to your team <span className="text-red-400/70">(minimum 2 required)</span>
+                                                        </p>
                                                     </div>
+
+                                                    {errors._members && (
+                                                        <motion.div
+                                                            initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+                                                            className="glass-panel rounded-xl p-3 border border-red-500/20 bg-red-500/5"
+                                                        >
+                                                            <p className="text-red-400 text-xs flex items-center gap-2">
+                                                                <AlertCircle className="w-3.5 h-3.5" /> {errors._members}
+                                                            </p>
+                                                        </motion.div>
+                                                    )}
 
                                                     <div className="space-y-5">
                                                         {members.map((m, i) => (
@@ -398,21 +670,39 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                                     <span className="text-neon-cyan text-[10px] font-bold tracking-[0.15em] uppercase flex items-center gap-1.5">
                                                                         <UserCircle className="w-3.5 h-3.5" />
                                                                         Member {i + 1}
+                                                                        {i < 2 && <span className="text-red-400/60 ml-1">(required)</span>}
                                                                     </span>
-                                                                    {members.length > 1 && (
+                                                                    {/* Only allow removing if more than 2 members */}
+                                                                    {members.length > 2 && (
                                                                         <button type="button" onClick={() => removeMember(i)}
                                                                             className="text-red-400/50 hover:text-red-400 transition-colors">
                                                                             <Trash2 className="w-3.5 h-3.5" />
                                                                         </button>
                                                                     )}
                                                                 </div>
-                                                                <input type="text" required value={m.name} onChange={e => updateMember(i, "name", e.target.value)}
-                                                                    className="hud-input" placeholder="Member's full name" />
+                                                                <div>
+                                                                    <input type="text" required value={m.name}
+                                                                        onChange={e => updateMember(i, "name", e.target.value)}
+                                                                        onBlur={(e) => { updateMember(i, "name", sanitize(e.target.value)); touch(`member${i}_name`); }}
+                                                                        className={inputState(`member${i}_name`, errors, touched)} placeholder="Member's full name" />
+                                                                    <FieldError error={errors[`member${i}_name`]} />
+                                                                </div>
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                                    <input type="tel" required value={m.phone} onChange={e => updateMember(i, "phone", e.target.value)}
-                                                                        className="hud-input" placeholder="Phone number" />
-                                                                    <input type="email" required value={m.email} onChange={e => updateMember(i, "email", e.target.value)}
-                                                                        className="hud-input" placeholder="Email address" />
+                                                                    <div>
+                                                                        <input type="tel" required value={m.phone}
+                                                                            onChange={e => updateMember(i, "phone", e.target.value)}
+                                                                            onBlur={() => touch(`member${i}_phone`)}
+                                                                            className={inputState(`member${i}_phone`, errors, touched)} placeholder="Phone number" />
+                                                                        <FieldError error={errors[`member${i}_phone`]} />
+                                                                    </div>
+                                                                    <div>
+                                                                        <input type="email" required value={m.email}
+                                                                            onChange={e => updateMember(i, "email", e.target.value)}
+                                                                            onBlur={(e) => { updateMember(i, "email", e.target.value.trim().toLowerCase()); touch(`member${i}_email`); }}
+                                                                            className={inputState(`member${i}_email`, errors, touched)} placeholder="Email address" />
+                                                                        <FieldError error={errors[`member${i}_email`]} />
+                                                                        <FieldWarning warning={warnings[`member${i}_email`]} />
+                                                                    </div>
                                                                 </div>
                                                             </motion.div>
                                                         ))}
@@ -421,7 +711,7 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                     {members.length < 3 && (
                                                         <button type="button" onClick={addMember}
                                                             className="w-full py-3 border border-dashed border-white/10 rounded-xl text-gray-500 hover:border-neon-cyan/30 hover:text-neon-cyan transition-all flex items-center justify-center gap-2 text-xs font-bold tracking-wider group">
-                                                            <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" /> Add Team Member
+                                                            <Plus className="w-3.5 h-3.5 group-hover:rotate-90 transition-transform" /> Add Team Member (Optional)
                                                         </button>
                                                     )}
 
@@ -433,7 +723,7 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                         >
                                                             <div className="text-red-400 text-xs flex items-center gap-2">
                                                                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                                                                <span>Submission failed. Please check your connection and try again.</span>
+                                                                <span>{errorMessage || "Submission failed. Please check your connection and try again."}</span>
                                                             </div>
                                                         </motion.div>
                                                     )}
@@ -456,18 +746,14 @@ export default function RegistrationPage({ isOpen, onClose }: RegistrationPagePr
                                                     disabled={status === "submitting"}
                                                     whileHover={{ scale: 1.01 }}
                                                     whileTap={{ scale: 0.98 }}
-                                                    className={`flex-1 py-3 font-bold rounded-xl border transition-all flex items-center justify-center gap-2 text-xs tracking-wider disabled:opacity-40 ${step === 3
+                                                    className={`flex-1 py-3 font-bold rounded-xl border transition-all flex items-center justify-center gap-2 text-xs tracking-wider disabled:opacity-40 disabled:cursor-not-allowed ${step === 3
                                                         ? "bg-gradient-to-r from-green-500/15 to-emerald-500/15 text-green-400 border-green-500/25 hover:from-green-500/25 hover:to-emerald-500/25 hover:border-green-500/40 shadow-[0_0_15px_rgba(52,211,153,0.1)]"
                                                         : "bg-neon-cyan/10 text-neon-cyan border-neon-cyan/20 hover:bg-neon-cyan/20 hover:border-neon-cyan/40 shadow-[0_0_12px_rgba(0,240,255,0.1)]"
                                                         }`}>
                                                     {status === "submitting" ? (
                                                         <>
-                                                            <motion.div
-                                                                animate={{ rotate: 360 }}
-                                                                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                                                                className="w-4 h-4 border-2 border-current border-t-transparent rounded-full"
-                                                            />
-                                                            Processing Registration...
+                                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                                            Submitting Registration...
                                                         </>
                                                     ) : step < 3 ? (
                                                         <>Continue <ChevronRight className="w-4 h-4" /></>

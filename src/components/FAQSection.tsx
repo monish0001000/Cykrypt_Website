@@ -7,11 +7,11 @@ import { HelpCircle, ChevronDown } from "lucide-react";
 const faqs = [
     {
         q: "What is the team size for CYKRYPT events?",
-        a: "Each team can have 2 to 4 members, including the team leader. Solo participation is allowed for the Technical Quiz and Paper Presentation events.",
+        a: "Each team can have 2 to 4 members, including the team leader. Solo participation is allowed for the Paper Presentation event.",
     },
     {
         q: "Is CYKRYPT conducted online or offline?",
-        a: "CTF 2.0 is a hybrid event — online qualifiers followed by an offline grand finale. Cyber Forensics is offline only. Paper Presentation and Technical Quiz are offline at the campus.",
+        a: "CTF 2.0 is a hybrid event — online qualifiers followed by an offline grand finale. Cyber Forensics is offline only. Paper Presentation is offline at the campus.",
     },
     {
         q: "What is the registration fee?",

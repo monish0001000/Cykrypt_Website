@@ -10,7 +10,6 @@ const galleryImages = [
     { src: "/event_ctf.jpg", caption: "CTF Competition — Teams in action" },
     { src: "/event_forensics.jpg", caption: "Cyber Forensics — Digital investigation" },
     { src: "/event_paper.jpg", caption: "Paper Presentation — Research showcase" },
-    { src: "/event_quiz.jpg", caption: "Technical Quiz — Knowledge battle" },
     { src: "/event_ctf.jpg", caption: "CTF Finals — Championship round" },
     { src: "/event_forensics.jpg", caption: "Forensics Lab — Evidence analysis" },
 ];
